@@ -23,7 +23,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: .
+      dockerfile: frontend/Dockerfile
     depends_on:
       backend:
         condition: service_healthy
