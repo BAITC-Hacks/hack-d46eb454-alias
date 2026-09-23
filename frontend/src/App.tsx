@@ -160,6 +160,13 @@ export default function App() {
       )}
       {backend.error && <Notice error>{backend.error}</Notice>}
       {backend.busy && <Notice>Идёт расчёт на сервере…</Notice>}
+      {qualityWarnings.map((warning) => (
+        <Notice key={warning.code} error={warning.severity === "error"}>
+          {warning.code === "CURRENT_STOCK_MISSING_FOR_SKU"
+            ? `Нет актуальных остатков: не рассчитано позиций — ${warning.count}.`
+            : warning.count > 1 ? `${warning.message} Затронуто: ${warning.count}.` : warning.message}
+        </Notice>
+      ))}
       {page === "overview" && (
         <Overview
           recommendations={rows}
