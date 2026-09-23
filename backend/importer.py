@@ -27,6 +27,11 @@ def _code(value: Any) -> str | None:
     return code or None
 
 
+def _same_warehouse(value: Any, warehouse_scope: str) -> bool:
+    """Compare user input and 1C warehouse values without case sensitivity."""
+    return str(value or "").strip().casefold() == warehouse_scope.strip().casefold()
+
+
 def _number(value: Any) -> float | None:
     if isinstance(value, bool) or value is None or value == "":
         return None
@@ -113,7 +118,7 @@ def _parse_sheet(name: str, sheet: Any, detected: str, warehouse_scope: str, dat
             if not code or not sale_date or quantity is None:
                 issues.append(_warning("INVALID_SALE_ROW", "warning", f"{name}:{sheet.title}:{row_no}: нет кода, даты или количества", code))
                 continue
-            if warehouse != warehouse_scope:
+            if not _same_warehouse(warehouse, warehouse_scope):
                 counts["other_warehouse_rows"] += 1
                 continue
             if not document.startswith("Расходная накладная") or quantity <= 0:
@@ -198,7 +203,7 @@ def _parse_sheet(name: str, sheet: Any, detected: str, warehouse_scope: str, dat
             issues.append(_warning("INVALID_CURRENT_STOCK_FILE", "error", f"{name}:{sheet.title}: требуются код, остаток и дата"))
             return
         for row_no, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), 2):
-            if warehouse_index is not None and str(row[warehouse_index] or "").strip() != warehouse_scope:
+            if warehouse_index is not None and not _same_warehouse(row[warehouse_index], warehouse_scope):
                 counts["other_warehouse_stock_rows"] += 1
                 continue
             code = _code(row[code_index] if len(row) > code_index else None)

@@ -1,4 +1,4 @@
-from backend.importer import _code, _date, _month, dataset_to_inputs
+from backend.importer import _code, _date, _month, _same_warehouse, dataset_to_inputs
 from backend import storage
 from backend.replenishment import calculate_item
 
@@ -7,6 +7,12 @@ def test_1c_code_and_date_are_not_normalized_away():
     assert _code("0012300_") == "0012300_"
     assert _date("22.09.2026 16:15:38").isoformat() == "2026-09-22"
     assert _month("сент. 2026") == "2026-09"
+
+
+def test_warehouse_match_ignores_case_and_outer_whitespace():
+    assert _same_warehouse("Алматы", "алматы")
+    assert _same_warehouse("  АЛМАТЫ  ", "Алматы")
+    assert not _same_warehouse("Астана", "Алматы")
 
 
 def test_dataset_requires_current_stock():

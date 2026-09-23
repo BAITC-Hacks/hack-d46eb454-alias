@@ -149,7 +149,7 @@ export function Data({ onDemo, onCalculate }: {
         <label className="ek-field">Склад
           <input className="ek-input" value={warehouse} onChange={(event) => { setWarehouse(event.target.value); setPreview(null); }} />
         </label>
-        <Button disabled={busy || !files.length} onClick={() => void inspectFiles()}>
+        <Button className="ek-import-preview" variant="primary" disabled={busy || !files.length} onClick={() => void inspectFiles()}>
           {busy ? "Проверяем…" : "Проверить файлы"}
         </Button>
         {preview && <div className="ek-quality" aria-label="Результат проверки импорта">

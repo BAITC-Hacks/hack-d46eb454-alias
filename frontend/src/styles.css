@@ -896,6 +896,10 @@
 #ekt-atelier .ek-filelist {
   margin-top: 18px;
 }
+#ekt-atelier .ek-import-preview {
+  display: flex;
+  margin-top: 18px;
+}
 #ekt-atelier .ek-file {
   display: flex;
   align-items: center;
