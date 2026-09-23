@@ -1,0 +1,3 @@
+interface:
+  display_name: "HACKALEM: интерфейс"
+  short_description: "Экраны закупщика и подключение к серверу"

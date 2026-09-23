@@ -1,0 +1,22 @@
+# Project MCP configuration. See docs/MCP.md.
+# No credentials or personal absolute paths belong in this file.
+
+[mcp_servers.hackalem_playwright]
+command = "npx"
+args = ["-y", "@playwright/mcp@0.0.82", "--headless", "--isolated"]
+enabled = true
+startup_timeout_sec = 60
+tool_timeout_sec = 60
+
+# Optional documentation service; enable only after personal setup.
+[mcp_servers.hackalem_context7]
+url = "https://mcp.context7.com/mcp"
+bearer_token_env_var = "CONTEXT7_API_KEY"
+enabled = false
+
+# Optional alternative when the GitHub connector is unavailable.
+# Do not enable alongside an equivalent existing connector.
+[mcp_servers.hackalem_github]
+url = "https://api.githubcopilot.com/mcp/"
+bearer_token_env_var = "GITHUB_MCP_TOKEN"
+enabled = false

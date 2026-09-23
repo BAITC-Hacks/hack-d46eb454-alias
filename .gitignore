@@ -1,0 +1,34 @@
+# Partner data and local outputs
+/IEK/
+/IEK.zip
+/data/
+/artifacts/
+/outputs/
+/var/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# Credentials and machine-local configuration
+.env
+.env.*
+!.env.example
+
+# Runtime/build files
+.DS_Store
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+.playwright-mcp/

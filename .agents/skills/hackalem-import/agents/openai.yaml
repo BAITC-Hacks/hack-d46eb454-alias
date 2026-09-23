@@ -1,0 +1,3 @@
+interface:
+  display_name: "HACKALEM: импорт"
+  short_description: "Импорт и проверка Excel-данных партнёра"

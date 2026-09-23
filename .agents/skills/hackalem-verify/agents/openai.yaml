@@ -1,0 +1,3 @@
+interface:
+  display_name: "HACKALEM: проверка"
+  short_description: "Проверка требований, расчётов и запуска MVP"

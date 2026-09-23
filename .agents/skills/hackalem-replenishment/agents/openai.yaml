@@ -1,0 +1,3 @@
+interface:
+  display_name: "HACKALEM: расчёт"
+  short_description: "Прогноз спроса и объяснимый заказ поставщику"
