@@ -39,6 +39,8 @@ interface Props {
   onExport: (rows: Recommendation[]) => void;
   catalog?: boolean;
   serverRun?: boolean;
+  blockedByMissingStock?: boolean;
+  onLoadData?: () => void;
 }
 export function Recommendations({
   rows,
@@ -51,6 +53,8 @@ export function Recommendations({
   onExport,
   catalog = false,
   serverRun = false,
+  blockedByMissingStock = false,
+  onLoadData,
 }: Props) {
   const visible = filterRecommendations(rows, filters);
   const suppliers = [
@@ -69,7 +73,7 @@ export function Recommendations({
     );
   return (
     <>
-      {!catalog && (
+      {!catalog && !blockedByMissingStock && (
         <div className="ek-stats">
           <div className="ek-stat">
             <div>
@@ -108,6 +112,13 @@ export function Recommendations({
         </div>
       )}
       <section className="ek-panel">
+        {blockedByMissingStock ? (
+          <EmptyState title="Расчёт ждёт актуальные остатки">
+            В архиве нет остатка по каждому товару на дату расчёта. Добавьте XLSX
+            с колонками «Код 1С», «Остаток», «Дата», «Склад» и загрузите набор снова.
+            {onLoadData && <Button variant="primary" onClick={onLoadData}>К загрузке данных</Button>}
+          </EmptyState>
+        ) : <>
         <div className="ek-toolbar">
           <div className="ek-filterrow">
             <div className="ek-inputwrap">
@@ -320,6 +331,7 @@ export function Recommendations({
             )}
           </div>
         </div>
+        </>}
       </section>
     </>
   );

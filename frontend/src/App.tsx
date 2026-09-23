@@ -14,6 +14,7 @@ import { downloadCsv } from "./lib/export";
 import { runOrders, runRecommendations } from "./api/mapper";
 import { useBackend } from "./api/useBackend";
 import { useLocalState } from "./hooks/useLocalState";
+import type { DataQualityWarning } from "./api/schema";
 import type {
   Design,
   Page,
@@ -53,11 +54,23 @@ function isSuppliers(value: unknown): value is Supplier[] {
     )
   );
 }
+function summarizeQualityWarnings(warnings: DataQualityWarning[]) {
+  return Array.from(warnings.reduce((groups, warning) => {
+    const current = groups.get(warning.code) ?? { ...warning, count: 0 };
+    current.count += 1;
+    groups.set(warning.code, current);
+    return groups;
+  }, new Map<string, DataQualityWarning & { count: number }>()).values());
+}
 
 export default function App() {
   const backend = useBackend();
   const rows = backend.run ? runRecommendations(backend.run) : [];
   const orders = backend.run ? runOrders(backend.run) : [];
+  const qualityWarnings = backend.run ? summarizeQualityWarnings(backend.run.data_quality) : [];
+  const missingCurrentStock = qualityWarnings.some((warning) =>
+    warning.code === "CURRENT_STOCK_MISSING_FOR_SKU" || warning.code === "NO_CALCULABLE_ITEMS",
+  );
   const [page, setPage] = useState<Page>(readPage);
   const [design, setDesign] = useLocalState<Design>(
     "ekt.design.v1",
@@ -135,7 +148,6 @@ export default function App() {
       design={design}
       dense={dense}
       onNavigate={navigate}
-      onAppearance={() => setDialog("appearance")}
       health={backend.health}
       dataOrigin={backend.run?.dataset_id === "synthetic-fixtures" ? "synthetic" : backend.run ? "partner" : null}
       action={action}
@@ -148,9 +160,11 @@ export default function App() {
       )}
       {backend.error && <Notice error>{backend.error}</Notice>}
       {backend.busy && <Notice>Идёт расчёт на сервере…</Notice>}
-      {backend.run?.data_quality.map((warning, index) => (
-        <Notice key={`${warning.code}-${index}`} error={warning.severity === "error"}>
-          {warning.message}
+      {qualityWarnings.map((warning) => (
+        <Notice key={warning.code} error={warning.severity === "error"}>
+          {warning.code === "CURRENT_STOCK_MISSING_FOR_SKU"
+            ? `Нет актуальных остатков: не рассчитано позиций — ${warning.count}.`
+            : warning.count > 1 ? `${warning.message} Затронуто: ${warning.count}.` : warning.message}
         </Notice>
       ))}
       {page === "overview" && (
@@ -170,6 +184,8 @@ export default function App() {
           onDetail={setDetail}
           onCreate={openOrder}
           serverRun
+          blockedByMissingStock={missingCurrentStock}
+          onLoadData={() => navigate("data")}
           catalog={page === "catalog"}
           onExport={(rows) =>
             downloadCsv(
