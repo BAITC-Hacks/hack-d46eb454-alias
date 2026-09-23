@@ -1,7 +1,5 @@
 /** View models интерфейса. Контракт сервера: ../../contracts/openapi.yaml. */
-export type Page =
-  "overview" | "recommendations" | "orders" | "data" | "catalog" | "suppliers";
-export type Design = "soft" | "studio" | "focus";
+export type Page = "recommendations" | "orders" | "data";
 export type Urgency = "critical" | "high" | "normal" | "low" | "unknown";
 export type RecommendationStatus = "recommended" | "no_order" | "blocked";
 export interface DataNotice {

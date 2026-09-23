@@ -450,6 +450,31 @@ button:disabled {
 #ekt-atelier[data-direction="focus"] .ek-nav a {
   font-size: 12px;
 }
+#ekt-atelier .ek-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid #e5e9eb;
+}
+#ekt-atelier .ek-page-size,
+#ekt-atelier .ek-page-buttons,
+#ekt-atelier .ek-page-number {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+#ekt-atelier .ek-page-size .ek-select {
+  width: 76px;
+  min-width: 76px;
+}
+#ekt-atelier .ek-page-buttons .ek-button {
+  min-width: 36px;
+}
+
 @media (min-width: 1250px) {
   #ekt-atelier .ek-ordergrid {
     grid-template-columns: 1fr 1.4fr;

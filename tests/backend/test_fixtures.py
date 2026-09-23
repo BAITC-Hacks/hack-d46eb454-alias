@@ -65,10 +65,14 @@ def test_zero_need_stays_zero_despite_moq():
     assert result["recommended_quantity"] == 0
 
 
-def test_missing_stock_blocks_calculation():
+def test_missing_stock_preserves_forecast_without_inventing_order():
     scenario = DATA["scenarios"][0]
-    with pytest.raises(ValueError, match="current available stock is missing"):
-        calculate_item(replace(scenario_to_input(scenario, REQUEST), available_stock=None))
+    result = calculate_item(replace(scenario_to_input(scenario, REQUEST), available_stock=None))
+    assert result["components"]["forecast_over_horizon"] > 0
+    assert result["components"]["available_stock"] is None
+    assert result["recommended_quantity"] is None
+    assert result["components"]["net_need_before_rounding"] is None
+    assert result["urgency"] == "unknown"
 
 
 def test_unconfirmed_stockout_does_not_increase_demand():

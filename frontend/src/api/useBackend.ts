@@ -3,14 +3,6 @@ import { api } from "./client";
 import type { CalculateRecommendationsRequest, RecommendationRun } from "./schema";
 
 const RUN_KEY = "ekt.active_run_id";
-const syntheticRequest: CalculateRecommendationsRequest = {
-  dataset_id: "synthetic-fixtures",
-  calculation_date: "2026-09-23",
-  warehouse_scope: "Алматы",
-  review_period_days: 7,
-  default_lead_time_days: 21,
-  service_level_z: 1.65,
-};
 
 export function useBackend() {
   const [run, setRun] = useState<RecommendationRun | null>(null);
@@ -26,7 +18,10 @@ export function useBackend() {
     });
     const savedRun = sessionStorage.getItem(RUN_KEY);
     if (savedRun) {
-      api.getRun(savedRun).then((value) => { if (active) setRun(value); }).catch(() => {
+      api.getRun(savedRun).then((value) => {
+        if (value.dataset_id === "synthetic-fixtures") { sessionStorage.removeItem(RUN_KEY); return; }
+        if (active) setRun(value);
+      }).catch(() => {
         sessionStorage.removeItem(RUN_KEY);
       });
     }
@@ -98,6 +93,6 @@ export function useBackend() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  return { run, health, busy, error, setError, calculate, calculateSynthetic: () => calculate(syntheticRequest),
+  return { run, health, busy, error, setError, calculate,
     importAndCalculate, adjust, approve, exportOrder, loadRun };
 }

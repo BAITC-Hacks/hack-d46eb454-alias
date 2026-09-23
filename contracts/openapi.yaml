@@ -285,6 +285,11 @@ components:
         include_unapproved_stockout_estimates:
           type: boolean
           default: false
+        stock_mode:
+          type: string
+          enum: [actual_only, monthly_estimate]
+          default: actual_only
+          description: actual_only сохраняет прогноз при неизвестном остатке; monthly_estimate явно включает предварительную оценку из начального остатка и продаж. Не даёт права утверждения фактического заказа.
         category_settings:
           type: array
           items:
@@ -438,15 +443,15 @@ components:
           type: string
         urgency:
           type: string
-          enum: [critical, high, normal, low]
+          enum: [critical, high, normal, low, unknown]
         expected_stockout_date:
           type: [string, "null"]
           format: date
         recommended_quantity:
-          type: number
-          description: Final quantity after MOQ and pack multiple.
+          type: [number, "null"]
+          description: Количество после MOQ; null — прогноз без известного остатка, не нулевой заказ.
         calculated_quantity:
-          type: number
+          type: [number, "null"]
           description: Quantity before manual override.
         approved_quantity:
           type: [number, "null"]
@@ -511,18 +516,21 @@ components:
         available_stock_date:
           type: [string, "null"]
           format: date
+        stock_estimate:
+          type: [object, "null"]
+          description: Явная оценка, не фактический available_stock. Содержит quantity, opening_quantity, deducted_sales, date, method и source (file, sheet, row).
         eligible_inbound:
           type: array
           items:
             $ref: "#/components/schemas/InboundComponent"
         net_need_before_rounding:
-          type: number
+          type: [number, "null"]
         moq:
           type: [number, "null"]
         pack_multiple:
           type: [number, "null"]
         rounding_delta:
-          type: number
+          type: [number, "null"]
 
     InboundComponent:
       type: object
@@ -589,7 +597,7 @@ components:
             type: string
         detected_type:
           type: string
-          enum: [sales_detail, monthly_sales, monthly_stock, inbound, moq, seasonality, unknown]
+          enum: [sales_detail, monthly_sales, monthly_stock, inbound, moq, seasonality, current_stock, categories, stockouts, mixed, unknown]
 
     DataQualityWarning:
       type: object

@@ -3,30 +3,16 @@ import {
   Database,
   Files,
   FlaskConical,
-  LayoutDashboard,
   ListFilter,
-  Package,
-  Palette,
-  Search,
-  Settings2,
-  Truck,
 } from "lucide-react";
-import type { Design, Page } from "../types";
+import type { Page } from "../types";
 
 export const navigation = [
-  { id: "overview", label: "Обзор", icon: LayoutDashboard },
+  { id: "data", label: "Данные", icon: Database },
   { id: "recommendations", label: "Закупки", icon: ListFilter },
   { id: "orders", label: "Заказы", icon: Files },
-  { id: "data", label: "Данные", icon: Database },
-  { id: "catalog", label: "Товары", icon: Package },
-  { id: "suppliers", label: "Поставщики", icon: Truck },
-] satisfies { id: Page; label: string; icon: typeof LayoutDashboard }[];
+] satisfies { id: Page; label: string; icon: typeof ListFilter }[];
 const titles: Record<Page, [string, string, string]> = {
-  overview: [
-    "Рабочее пространство",
-    "Сегодня в закупках",
-    "Алматы · данные выбранного расчёта",
-  ],
   recommendations: [
     "Планирование запасов",
     "Рекомендации закупок",
@@ -41,16 +27,6 @@ const titles: Record<Page, [string, string, string]> = {
     "Источники и качество",
     "Данные для расчёта",
     "Продажи, остатки и поставки — в одном рабочем пространстве.",
-  ],
-  catalog: [
-    "Номенклатура",
-    "Каталог товаров",
-    "Состояние и обоснование каждой позиции.",
-  ],
-  suppliers: [
-    "Условия пополнения",
-    "Поставщики",
-    "Сроки поставки и параметры планирования.",
   ],
 };
 function Brand() {
@@ -68,10 +44,7 @@ function Brand() {
 interface Props {
   children: ReactNode;
   page: Page;
-  design: Design;
-  dense: boolean;
   onNavigate: (page: Page) => void;
-  onAppearance: () => void;
   action: ReactNode;
   health: { status: "ok"; version: string } | null;
   dataOrigin: "synthetic" | "partner" | null;
@@ -79,16 +52,13 @@ interface Props {
 export function AppShell({
   children,
   page,
-  design,
-  dense,
   onNavigate,
-  onAppearance,
   action,
   health,
   dataOrigin,
 }: Props) {
   return (
-    <div id="ekt-atelier" data-direction={design} data-dense={dense}>
+    <div id="ekt-atelier">
       <div className="ek-app">
         <aside className="ek-side">
           <Brand />
@@ -129,29 +99,11 @@ export function AppShell({
               </a>
             ))}
           </nav>
-          <div className="ek-headtools">
-            <button
-              className="ek-circle"
-              type="button"
-              aria-label="Поиск товара"
-              onClick={() => onNavigate("catalog")}
-            >
-              <Search size={18} />
-            </button>
-            <button
-              className="ek-circle"
-              type="button"
-              aria-label="Настройки оформления"
-              onClick={onAppearance}
-            >
-              <Palette size={18} />
-            </button>
-          </div>
         </header>
         <div className="ek-body">
           <aside className="ek-rail" aria-label="Быстрые действия">
             <div className="ek-rail-group">
-              {navigation.slice(0, 4).map((item) => (
+              {navigation.map((item) => (
                 <button
                   key={item.id}
                   type="button"
@@ -162,22 +114,6 @@ export function AppShell({
                   <item.icon size={18} />
                 </button>
               ))}
-            </div>
-            <div className="ek-rail-group ek-rail-footer">
-              <button
-                type="button"
-                aria-label="Параметры поставщиков"
-                onClick={() => onNavigate("suppliers")}
-              >
-                <Settings2 size={18} />
-              </button>
-              <button
-                type="button"
-                aria-label="Выбрать оформление"
-                onClick={onAppearance}
-              >
-                <Palette size={18} />
-              </button>
             </div>
           </aside>
           <main id="main-content" className="ek-main">
@@ -195,7 +131,7 @@ export function AppShell({
               <span>
                 {dataOrigin === "synthetic" ? "Синтетические данные · расчёт на сервере" :
                   dataOrigin === "partner" ? "Локальные данные партнёра · расчёт на сервере" :
-                    "Загрузите данные или запустите синтетический расчёт"}
+                    "Загрузите таблицы ИЭК для расчёта"}
                 {health ? ` · API ${health.version}` : " · сервер недоступен"}
               </span>
             </div>

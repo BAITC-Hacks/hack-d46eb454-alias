@@ -2,7 +2,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   CircleAlert,
-  Download,
   Package,
   Search,
   ShoppingBag,
@@ -11,6 +10,8 @@ import {
 import type { Recommendation, RecommendationFilters } from "../types";
 import { formatNumber as n } from "../lib/format";
 import { Button, EmptyState, RiskBadge } from "../components/ui";
+import { Pagination } from "../components/Pagination";
+import { usePagination } from "../lib/pagination";
 
 export function filterRecommendations(
   rows: Recommendation[],
@@ -32,51 +33,30 @@ interface Props {
   rows: Recommendation[];
   filters: RecommendationFilters;
   onFilters: (filters: RecommendationFilters) => void;
-  selected: string[];
-  onSelected: (ids: string[]) => void;
   onDetail: (row: Recommendation) => void;
   onCreate: () => void;
-  onExport: (rows: Recommendation[]) => void;
-  catalog?: boolean;
-  serverRun?: boolean;
 }
 export function Recommendations({
   rows,
   filters,
   onFilters,
-  selected,
-  onSelected,
   onDetail,
   onCreate,
-  onExport,
-  catalog = false,
-  serverRun = false,
 }: Props) {
   const visible = filterRecommendations(rows, filters);
+  const pagination = usePagination(visible, JSON.stringify([rows[0]?.calculation_id, filters]));
   const suppliers = [
     ...new Map(rows.map((r) => [r.supplier_id, r.supplier_name])).entries(),
   ];
-  const selectable = visible.filter(
-    (r) => r.status === "recommended" && r.supplier_id,
-  );
-  const everySelected =
-    selectable.length > 0 && selectable.every((r) => selected.includes(r.id));
-  const toggleAll = () =>
-    onSelected(
-      everySelected
-        ? selected.filter((id) => !selectable.some((r) => r.id === id))
-        : [...new Set([...selected, ...selectable.map((r) => r.id)])],
-    );
   return (
     <>
-      {!catalog && (
-        <div className="ek-stats">
+      <div className="ek-stats">
           <div className="ek-stat">
             <div>
-              <small>Рекомендовано к закупке</small>
+              <small>{rows.length && rows.every(r => r.recommended_qty === null) ? "Рассчитан прогноз спроса" : rows.some(r => r.flags?.includes("estimated_stock")) ? "В предварительном плане" : "Рекомендовано к закупке"}</small>
               <div>
                 <strong>
-                  {rows.filter((r) => r.status === "recommended").length}
+                  {rows.length && rows.every(r => r.recommended_qty === null) ? rows.length : rows.filter((r) => r.status === "recommended").length}
                 </strong>{" "}
                 <span className="ek-small">позиций</span>
               </div>
@@ -105,8 +85,7 @@ export function Recommendations({
             </div>
             <CircleAlert />
           </div>
-        </div>
-      )}
+      </div>
       <section className="ek-panel">
         <div className="ek-toolbar">
           <div className="ek-filterrow">
@@ -161,11 +140,12 @@ export function Recommendations({
               <option value="all">Все позиции</option>
               <option value="recommended">К закупке</option>
               <option value="no_order">Запаса достаточно</option>
-              <option value="blocked">Недостаточно данных</option>
+              <option value="blocked">Только прогноз — нет остатка</option>
             </select>
           </div>
           <span className="ek-small">Найдено: {visible.length}</span>
         </div>
+        <Pagination {...pagination} label="Страницы закупок сверху" />
         {visible.length === 0 ? (
           <EmptyState title="Ничего не найдено">
             Попробуйте другой запрос или сбросьте фильтры.{" "}
@@ -187,28 +167,17 @@ export function Recommendations({
           <div className="ek-tablewrap">
             <table className="ek-table">
               <caption className="sr-only">
-                {catalog
-                  ? "Каталог товаров"
-                  : "Рекомендации, сгруппированные по поставщикам"}
+                Рекомендации, сгруппированные по поставщикам
               </caption>
               <thead>
                 <tr>
                   <th>
-                    {catalog || serverRun ? (
-                      <Package size={17} />
-                    ) : (
-                      <input
-                        type="checkbox"
-                        aria-label="Выбрать все доступные строки на экране"
-                        checked={everySelected}
-                        disabled={!selectable.length}
-                        onChange={toggleAll}
-                      />
-                    )}
+                    <Package size={17} />
                   </th>
                   <th>Товар / артикул</th>
                   <th className="ek-right">Остаток</th>
                   <th className="ek-right">В пути</th>
+                  <th className="ek-right">Прогноз спроса</th>
                   <th className="ek-right">К заказу</th>
                   <th>Приоритет</th>
                   <th>Обоснование</th>
@@ -216,40 +185,22 @@ export function Recommendations({
                 </tr>
               </thead>
               {suppliers.map(([supplierId, supplierName]) => {
-                const group = visible.filter(
+                const group = pagination.rows.filter(
                   (r) => r.supplier_id === supplierId,
                 );
                 if (!group.length) return null;
                 return (
                   <tbody key={supplierId}>
                     <tr className="ek-group-row">
-                      <th scope="rowgroup" colSpan={8}>
+                      <th scope="rowgroup" colSpan={9}>
                         {supplierName || "Поставщик не указан"}{" "}
-                        <span>{group.length} позиций</span>
+                        <span>{group.length} позиций на странице</span>
                       </th>
                     </tr>
                     {group.map((row) => (
                       <tr key={row.id}>
                         <td>
-                          {catalog || serverRun ? (
-                            <Package size={17} />
-                          ) : (
-                            <input
-                              type="checkbox"
-                              aria-label={`Выбрать ${row.name}`}
-                              disabled={
-                                row.status !== "recommended" || !row.supplier_id
-                              }
-                              checked={selected.includes(row.id)}
-                              onChange={(e) =>
-                                onSelected(
-                                  e.target.checked
-                                    ? [...selected, row.id]
-                                    : selected.filter((id) => id !== row.id),
-                                )
-                              }
-                            />
-                          )}
+                          <Package size={17} />
                         </td>
                         <td>
                           <button
@@ -265,11 +216,14 @@ export function Recommendations({
                         </td>
                         <td className="ek-right">
                           {n(row.available_stock)}{" "}
+                          {row.flags?.includes("estimated_stock") && <small>оценка</small>}
                           <span className="ek-small">{row.unit}</span>
                         </td>
                         <td className="ek-right">{n(row.incoming_qty)}</td>
+                        <td className="ek-right">{n(row.forecast_qty)} <span className="ek-small">{row.unit}</span></td>
                         <td className="ek-right ek-qty">
-                          {n(row.recommended_qty)}{" "}
+                          {row.recommended_qty === null ? "Нет данных об остатке" : n(row.recommended_qty)}{" "}
+                          {row.flags?.includes("estimated_stock") && <small>предварительно</small>}
                           <span className="ek-small">{row.unit}</span>
                         </td>
                         <td>
@@ -294,30 +248,20 @@ export function Recommendations({
             </table>
           </div>
         )}
+        <Pagination {...pagination} label="Страницы закупок снизу" />
         <div className="ek-tablefoot">
           <span className="ek-small">
-            {catalog
-              ? `${visible.length} из ${rows.length} товаров`
-              : serverRun ? `Позиций: ${visible.length} · заказ включает весь расчёт` : `Выбрано позиций: ${selected.length} · заказ отдельно по каждому поставщику`}
+            Позиций: {visible.length} · заказ включает весь расчёт
           </span>
           <div className="ek-actions">
             <Button
-              onClick={() => onExport(visible)}
-              disabled={!visible.length}
+              variant="primary"
+              onClick={onCreate}
+              disabled={!rows.some((row) => row.status === "recommended")}
             >
-              <Download size={17} />
-              Экспорт CSV
+              Открыть заказ
+              <ArrowRight size={17} />
             </Button>
-            {!catalog && (
-              <Button
-                variant="primary"
-                onClick={onCreate}
-                disabled={serverRun ? !rows.some((row) => row.status === "recommended") : !selected.length}
-              >
-                {serverRun ? "Открыть заказ" : "Создать заказ"}
-                <ArrowRight size={17} />
-              </Button>
-            )}
           </div>
         </div>
       </section>

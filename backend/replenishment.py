@@ -13,7 +13,7 @@ from statistics import median, pstdev
 from typing import Any
 
 
-ALGORITHM_VERSION = "replenishment-v0.1"
+ALGORITHM_VERSION = "replenishment-v0.2"
 
 
 @dataclass(frozen=True)
@@ -73,6 +73,7 @@ class CalculationInput:
     raw_demand_quantity: float | None = None
     safety_stock: float | None = None
     metadata_flags: tuple[str, ...] = ()
+    stock_estimate: dict[str, Any] | None = None
 
 
 def _round(value: float) -> float:
@@ -206,9 +207,7 @@ def _expected_stockout_date(stock: float, daily_demand: float, inbound: tuple[In
 
 def calculate_item(item: CalculationInput) -> dict[str, Any]:
     """Return one contract-shaped recommendation without external side effects."""
-    if item.available_stock is None:
-        raise ValueError(f"{item.sku}: current available stock is missing")
-    if item.available_stock < 0 or item.review_period_days < 1 or item.lead_time_days < 0 or item.service_level_z < 0:
+    if (item.available_stock is not None and item.available_stock < 0) or item.review_period_days < 1 or item.lead_time_days < 0 or item.service_level_z < 0:
         raise ValueError(f"{item.sku}: invalid stock or planning parameters")
     if item.seasonality_coefficient <= 0 or (item.moq is not None and item.moq < 0) or (item.pack_multiple is not None and item.pack_multiple <= 0):
         raise ValueError(f"{item.sku}: invalid seasonality or purchase conditions")
@@ -246,12 +245,16 @@ def calculate_item(item: CalculationInput) -> dict[str, Any]:
         sigma = _daily_sigma(regular_operations, item.calculation_date, item.demand_window_days, item.lead_time_days)
     safety = _round(item.service_level_z * sigma)
     inbound_components, eligible, late = _inbound_components(item.inbound, item.calculation_date, horizon)
-    net = _round(max(0.0, forecast + safety - item.available_stock - eligible))
-    recommended = _rounded_order(net, item.moq, item.pack_multiple)
-    stockout_date = _expected_stockout_date(item.available_stock, forecast / horizon if horizon else 0, item.inbound, item.calculation_date, horizon)
+    net = _round(max(0.0, forecast + safety - item.available_stock - eligible)) if item.available_stock is not None else None
+    recommended = _rounded_order(net, item.moq, item.pack_multiple) if net is not None else None
+    stockout_date = _expected_stockout_date(item.available_stock, forecast / horizon if horizon else 0, item.inbound, item.calculation_date, horizon) if item.available_stock is not None else None
     arrival_date = item.calculation_date + timedelta(days=item.lead_time_days)
-    urgency = "critical" if stockout_date and stockout_date < arrival_date else "high" if stockout_date else "normal" if net > 0 else "low"
+    urgency = "unknown" if net is None else "critical" if stockout_date and stockout_date < arrival_date else "high" if stockout_date else "normal" if net > 0 else "low"
     flags = list(item.metadata_flags)
+    if item.stock_estimate is not None:
+        flags.append("estimated_stock")
+    if net is None:
+        flags.append("forecast_only")
     if excluded:
         flags.append("outlier_excluded")
     if lost:
@@ -262,11 +265,11 @@ def calculate_item(item: CalculationInput) -> dict[str, Any]:
         flags.append("trend_applied")
     if late:
         flags.append("late_inbound_ignored_for_current_horizon")
-    if recommended > net and item.pack_multiple:
+    if net is not None and recommended > net and item.pack_multiple:
         flags.append("rounded_to_pack_multiple")
     if stockout_date and stockout_date < arrival_date:
         flags.append("stockout_before_new_delivery")
-    fmt = lambda x: f"{x:g}"
+    fmt = lambda x: "неизвестно" if x is None else f"{x:g}"
     explanation = (
         f"Прогноз на {horizon} дней: {fmt(forecast)} {item.unit} "
         f"(сезонность {fmt(item.seasonality_coefficient)}, тренд {fmt(trend)}, плановый прирост {fmt(item.growth_override_percent)}%). "
@@ -274,6 +277,21 @@ def calculate_item(item: CalculationInput) -> dict[str, Any]:
         f"поступления внутри горизонта {fmt(eligible)} {item.unit}. "
         f"Потребность {fmt(net)} {item.unit}; после MOQ и кратности рекомендовано {fmt(recommended)} {item.unit}."
     )
+    if net is None:
+        explanation = (
+            f"Прогноз спроса на {horizon} дней: {fmt(forecast)} {item.unit}; страховой запас {fmt(safety)} {item.unit}. "
+            f"Сезонность {fmt(item.seasonality_coefficient)}, тренд {fmt(trend)}, прирост {fmt(item.growth_override_percent)}%. "
+            f"Подтверждённые будущие поступления: {fmt(eligible)} {item.unit}. "
+            "Текущий остаток неизвестен: количество заказа и дата дефицита не определены. Это прогноз, не нулевой заказ."
+        )
+    if item.stock_estimate is not None:
+        explanation = (
+            f"ПРЕДВАРИТЕЛЬНЫЙ ПЛАН, не фактический заказ. Оценка остатка: max(0, "
+            f"{fmt(item.stock_estimate['opening_quantity'])} на {item.stock_estimate['date']} − "
+            f"{fmt(item.stock_estimate['deducted_sales'])} продаж с начала месяца) = {fmt(item.available_stock)} {item.unit}. "
+            "Допущение: месячная таблица относится к выбранному складу; неучтённые приходы, возвраты, резервы и перемещения отсутствуют. "
+            + explanation.replace("доступный остаток", "оценочный остаток")
+        )
     if excluded:
         explanation += f" Разовые операции на {fmt(excluded)} {item.unit} исключены из регулярного спроса."
     if lost:
@@ -293,9 +311,11 @@ def calculate_item(item: CalculationInput) -> dict[str, Any]:
             "seasonality_coefficient": item.seasonality_coefficient, "trend_multiplier": trend,
             "growth_override_percent": item.growth_override_percent, "forecast_over_horizon": forecast,
             "demand_stddev_over_lead_time": _round(sigma), "safety_stock": safety,
-            "available_stock": item.available_stock, "available_stock_date": item.available_stock_date.isoformat() if item.available_stock_date else None,
+            "available_stock": item.available_stock if item.stock_estimate is None else None,
+            "available_stock_date": item.available_stock_date.isoformat() if item.available_stock_date and item.stock_estimate is None else None,
+            "stock_estimate": item.stock_estimate,
             "eligible_inbound": inbound_components, "net_need_before_rounding": net,
-            "moq": item.moq, "pack_multiple": item.pack_multiple, "rounding_delta": _round(recommended - net),
+            "moq": item.moq, "pack_multiple": item.pack_multiple, "rounding_delta": _round(recommended - net) if net is not None else None,
         },
         "explanation": explanation, "flags": flags,
         "excluded_operations": outlier_details,

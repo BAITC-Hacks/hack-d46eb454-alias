@@ -1,9 +1,7 @@
 import { ChevronDown, ScanLine } from "lucide-react";
 import type { Recommendation } from "../types";
-import { demoDemandSeries } from "../fixtures/demo";
 import { formatDate, formatNumber as n } from "../lib/format";
 import { Modal } from "./Modal";
-import { DemandChart } from "./DemandChart";
 import { Button, Notice, RiskBadge } from "./ui";
 
 export function RecommendationDrawer({
@@ -20,20 +18,12 @@ export function RecommendationDrawer({
       <p className="ek-overline">{row.sku}</p>
       <h2 className="ek-detail-title">{row.name}</h2>
       <RiskBadge urgency={row.urgency} />
-      {row.id === "rec_demo_1" ? (
-        <DemandChart series={demoDemandSeries} unit={row.unit} />
-      ) : (
-        <p className="ek-muted-note">
-          Сервер передаёт числовые компоненты расчёта. Временной ряд по датам
-          пока не входит в согласованный API.
-        </p>
-      )}
       <div className="ek-formula">
         <h3>Из чего складывается заказ</h3>
         {[
           ["Прогноз спроса", b.forecast_qty, ""],
           ["Страховой запас", b.safety_stock, "+ "],
-          ["Свободный остаток", b.available_stock, "− "],
+          [row.flags?.includes("estimated_stock") ? "Оценка остатка (не факт)" : "Свободный остаток", b.available_stock, "− "],
           ["Поступит в срок", b.incoming_within_horizon_qty, "− "],
         ].map(([label, value, sign]) => (
           <div className="ek-formula-row" key={String(label)}>
@@ -56,10 +46,10 @@ export function RecommendationDrawer({
         <div>
           <h3>
             {row.status === "blocked"
-              ? "Расчёт заблокирован"
+              ? "Прогноз рассчитан, заказ не определён"
               : row.status === "no_order"
                 ? "Заказ не требуется"
-                : "Рекомендуем заказать"}
+                : row.flags?.includes("estimated_stock") ? "Предварительный план" : "Рекомендуем заказать"}
           </h3>
           <p className="ek-small">
             Кратность: {n(b.pack_multiple)} {row.unit}
@@ -69,7 +59,7 @@ export function RecommendationDrawer({
           {n(row.recommended_qty)} <small>{row.unit}</small>
         </strong>
       </div>
-      {b.purchase_unit !== row.unit && (
+      {b.purchase_unit && b.purchase_unit !== row.unit && (
         <p className="ek-muted-note">
           К закупке: {n(b.purchase_qty)} {b.purchase_unit}. Одна{" "}
           {b.purchase_unit} = {n(b.purchase_to_stock_factor)} {row.unit}.
@@ -108,7 +98,7 @@ export function RecommendationDrawer({
             : "Значения получены из серверного расчёта загруженного набора."}
         </p>
         <ul>
-          <li>Сезонность и тренд представлены в демонстрационном прогнозе.</li>
+          <li>Коэффициент сезонности: {n(b.seasonality_coefficient)}; тренд: {n(b.trend_multiplier)}.</li>
           <li>
             Исключено разовых продаж: {n(b.excluded_anomaly_qty)} {row.unit}.
           </li>

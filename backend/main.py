@@ -7,6 +7,7 @@ from datetime import date
 from io import BytesIO, StringIO
 from pathlib import Path
 from uuid import uuid4
+from typing import Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,6 +51,7 @@ class CalculateRequest(BaseModel):
     growth_override_percent: float = 0
     include_unapproved_stockout_estimates: bool = False
     category_settings: list[CategorySetting] = Field(default_factory=list)
+    stock_mode: Literal["actual_only", "monthly_estimate"] = "actual_only"
 
 
 class CommitRequest(BaseModel):
@@ -83,10 +85,11 @@ def _run_response(request: CalculateRequest, items: list[dict], warnings: list[d
             "service_level_z": request.service_level_z, "demand_window_days": 90, "trend_method": "rolling_window",
             "outlier_method": "MAD by operation quantity and customer_id when available",
             "seasonality_source": "Сезонность ИЭК.xlsx", "safety_stock_method": "z * sigma(demand over lead time)",
+            "stock_mode": request.stock_mode,
         },
         "totals": {
-            "item_count": len(items), "recommended_item_count": sum(x["recommended_quantity"] > 0 for x in items),
-            "total_recommended_quantity": round(sum(x["recommended_quantity"] for x in items), 6),
+            "item_count": len(items), "recommended_item_count": sum((x["recommended_quantity"] or 0) > 0 for x in items),
+            "total_recommended_quantity": round(sum(x["recommended_quantity"] or 0 for x in items), 6),
         },
         "suppliers": group_by_supplier(items), "data_quality": warnings,
     }
@@ -144,6 +147,8 @@ def adjust_item(run_id: str, item_id: str, request: AdjustRequest) -> dict:
     item = next((item for group in run["suppliers"] for item in group["items"] if item["item_id"] == item_id), None)
     if item is None:
         raise HTTPException(status_code=404, detail="Item not found")
+    if item["calculated_quantity"] is None:
+        raise HTTPException(status_code=409, detail="Прогноз без остатка нельзя превратить в заказ ручной правкой.")
     old_quantity = item["recommended_quantity"]
     item["approved_quantity"] = request.approved_quantity
     item["recommended_quantity"] = request.approved_quantity
@@ -151,8 +156,8 @@ def adjust_item(run_id: str, item_id: str, request: AdjustRequest) -> dict:
     item["flags"] = sorted(set(item["flags"] + ["manager_adjusted"]))
     if run["status"] == "approved":
         run["status"] = "stale_after_edit"
-    run["totals"]["recommended_item_count"] = sum(x["recommended_quantity"] > 0 for group in run["suppliers"] for x in group["items"])
-    run["totals"]["total_recommended_quantity"] = round(sum(x["recommended_quantity"] for group in run["suppliers"] for x in group["items"]), 6)
+    run["totals"]["recommended_item_count"] = sum((x["recommended_quantity"] or 0) > 0 for group in run["suppliers"] for x in group["items"])
+    run["totals"]["total_recommended_quantity"] = round(sum(x["recommended_quantity"] or 0 for group in run["suppliers"] for x in group["items"]), 6)
     save_run(run, revision + 1)
     append_audit(run_id, revision + 1, "adjust", request.changed_by, request.reason, item_id, old_quantity, request.approved_quantity)
     return item
@@ -166,6 +171,10 @@ def approve_order(run_id: str, request: ApproveRequest) -> dict:
         raise HTTPException(status_code=404, detail="Run not found") from error
     if any(warning["severity"] == "error" for warning in run["data_quality"]):
         raise HTTPException(status_code=409, detail="Data quality errors block approval")
+    if any(item["calculated_quantity"] is None for group in run["suppliers"] for item in group["items"]):
+        raise HTTPException(status_code=409, detail="Прогноз без подтверждённого остатка не является операционным заказом.")
+    if any("estimated_stock" in item["flags"] for group in run["suppliers"] for item in group["items"]):
+        raise HTTPException(status_code=409, detail="Предварительный план использует оценочный остаток. Для утверждения фактического заказа нужен подтверждённый остаток.")
     run["status"] = "approved"
     approved_at = now_iso()
     save_run(run, revision + 1, request.approved_by, approved_at)

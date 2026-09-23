@@ -37,4 +37,16 @@ describe("contract to view model", () => {
     expect(orders[0].revision).toBeNull();
     expect(orders[0].lines[0].recommended_qty).toBe(run.suppliers[0].items[0].calculated_quantity);
   });
+
+  it("keeps missing orders null while displaying forecast", () => {
+    const item = { ...run.suppliers[0].items[0], recommended_quantity: null, calculated_quantity: null,
+      urgency: "unknown" as const, flags: ["forecast_only"], components: { ...run.suppliers[0].items[0].components, available_stock: null, net_need_before_rounding: null, rounding_delta: null } };
+    const forecastRun = { ...run, suppliers: [{ ...run.suppliers[0], items: [item] }] };
+    const row = toRecommendation(item, forecastRun);
+    expect(row.status).toBe("blocked");
+    expect(row.recommended_qty).toBeNull();
+    expect(row.available_stock).toBeNull();
+    expect(row.forecast_qty).toBeGreaterThan(0);
+    expect(runOrders(forecastRun)).toEqual([]);
+  });
 });

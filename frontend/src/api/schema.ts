@@ -27,11 +27,12 @@ export interface CalculationComponents {
   safety_stock: number;
   available_stock: number | null;
   available_stock_date: string | null;
+  stock_estimate?: { quantity: number; opening_quantity: number; deducted_sales: number; date: string; method: string; source: {file: string; sheet: string; row: number} } | null;
   eligible_inbound: InboundComponent[];
-  net_need_before_rounding: number;
+  net_need_before_rounding: number | null;
   moq: number | null;
   pack_multiple: number | null;
-  rounding_delta: number;
+  rounding_delta: number | null;
 }
 
 export interface RecommendationItem {
@@ -44,10 +45,10 @@ export interface RecommendationItem {
   unit: string;
   supplier_id: string;
   supplier_name: string;
-  urgency: "critical" | "high" | "normal" | "low";
+  urgency: "critical" | "high" | "normal" | "low" | "unknown";
   expected_stockout_date?: string | null;
-  recommended_quantity: number;
-  calculated_quantity: number;
+  recommended_quantity: number | null;
+  calculated_quantity: number | null;
   approved_quantity: number | null;
   manager_adjustment_reason?: string | null;
   components: CalculationComponents;
@@ -83,6 +84,7 @@ export interface RecommendationRun {
 }
 
 export interface CalculateRecommendationsRequest {
+  stock_mode?: "actual_only" | "monthly_estimate";
   dataset_id: string;
   calculation_date: string;
   warehouse_scope: string;

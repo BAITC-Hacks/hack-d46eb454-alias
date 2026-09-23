@@ -12,6 +12,8 @@ import type { OrderLine, PurchaseOrder, Recommendation } from "../types";
 import { formatDate, formatNumber as n } from "../lib/format";
 import { Button, EmptyState, Notice } from "../components/ui";
 import { Modal } from "../components/Modal";
+import { Pagination } from "../components/Pagination";
+import { usePagination } from "../lib/pagination";
 
 interface Props {
   orders: PurchaseOrder[];
@@ -104,6 +106,8 @@ function OrderEditor({
   const [error, setError] = useState("");
   const unsaved = Object.values(dirty).some(Boolean);
   const approved = order.status === "approved";
+  const preliminary = recommendations.some(row => row.flags?.includes("estimated_stock") || row.recommended_qty === null);
+  const pagination = usePagination(order.lines, order.id);
   return (
     <section className="ek-panel">
       <div className="ek-panelhead">
@@ -115,7 +119,9 @@ function OrderEditor({
         </div>
         <ClipboardList size={23} />
       </div>
-      {order.lines.map((line) => (
+      <Pagination {...pagination} label="Страницы позиций заказа сверху" disabled={unsaved} />
+      {unsaved && <p className="ek-form-message" role="status">Сохраните правки перед сменой страницы или количества строк.</p>}
+      {pagination.rows.map((line) => (
         <EditableLine
           key={`${line.id}-${line.ordered_qty}-${line.change_reason}`}
           line={line}
@@ -129,6 +135,7 @@ function OrderEditor({
           }}
         />
       ))}
+      <Pagination {...pagination} label="Страницы позиций заказа снизу" disabled={unsaved} />
       <Notice>
         <ShieldCheck size={16} />{" "}
         {approved
@@ -149,11 +156,11 @@ function OrderEditor({
         ) : (
           <Button
             variant="primary"
-            disabled={unsaved || !order.lines.some((l) => l.ordered_qty > 0)}
+            disabled={unsaved || preliminary || !order.lines.some((l) => l.ordered_qty > 0)}
             onClick={() => setConfirmation(true)}
           >
             <Check size={17} />
-            Подтвердить весь расчёт
+            {preliminary ? "Предварительный план — остатки не подтверждены" : "Подтвердить весь расчёт"}
           </Button>
         )}
         {approved && <Button disabled={unsaved} onClick={() => { void onExport(order, "xlsx").catch((cause) => setError(cause instanceof Error ? cause.message : "Ошибка XLSX-экспорта.")); }}>
