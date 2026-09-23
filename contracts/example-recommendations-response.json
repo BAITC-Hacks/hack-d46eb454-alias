@@ -1,0 +1,136 @@
+{
+  "run_id": "run_synthetic_2026_09_23_001",
+  "dataset_id": "synthetic-fixtures",
+  "calculation_date": "2026-09-23",
+  "algorithm_version": "replenishment-v0.1",
+  "status": "draft",
+  "parameters": {
+    "review_period_days": 7,
+    "default_lead_time_days": 21,
+    "service_level_z": 1.65,
+    "demand_window_days": 90,
+    "trend_method": "rolling_window",
+    "outlier_method": "MAD by operation quantity and customer_id when available",
+    "seasonality_source": "Сезонность ИЭК.xlsx",
+    "safety_stock_method": "z * sigma(demand over lead time)"
+  },
+  "totals": {
+    "item_count": 2,
+    "recommended_item_count": 2,
+    "total_recommended_quantity": 320
+  },
+  "suppliers": [
+    {
+      "supplier_id": "iek",
+      "supplier_name": "IEK",
+      "items": [
+        {
+          "item_id": "item_sku_1001",
+          "sku": "1001",
+          "supplier_article": "SUP-1001",
+          "item_name": "Автоматический выключатель 16А",
+          "category": "Автоматы",
+          "warehouse": "Алматы",
+          "unit": "шт",
+          "supplier_id": "iek",
+          "supplier_name": "IEK",
+          "urgency": "high",
+          "expected_stockout_date": "2026-10-05",
+          "recommended_quantity": 200,
+          "calculated_quantity": 200,
+          "approved_quantity": null,
+          "manager_adjustment_reason": null,
+          "components": {
+            "horizon_days": 28,
+            "raw_demand_quantity": 340,
+            "excluded_outlier_quantity": 160,
+            "adjusted_regular_demand_quantity": 180,
+            "lost_demand_estimate_quantity": 30,
+            "seasonality_coefficient": 1.2,
+            "trend_multiplier": 1.1,
+            "growth_override_percent": 5,
+            "forecast_over_horizon": 252,
+            "demand_stddev_over_lead_time": 20,
+            "safety_stock": 33,
+            "available_stock": 80,
+            "available_stock_date": "2026-09-22",
+            "eligible_inbound": [
+              {
+                "quantity": 20,
+                "expected_date": "2026-10-01",
+                "included": true,
+                "reason": "Поступает внутри горизонта расчета"
+              },
+              {
+                "quantity": 70,
+                "expected_date": "2026-11-10",
+                "included": false,
+                "reason": "Поступает после горизонта расчета"
+              }
+            ],
+            "net_need_before_rounding": 185,
+            "moq": 100,
+            "pack_multiple": 20,
+            "rounding_delta": 15
+          },
+          "explanation": "Прогноз на 28 дней: 252 шт. с учетом сезонности 1.20, тренда 1.10 и ручного прироста 5%. Страховой запас: 33 шт. Из доступного запаса 80 шт. и поступлений внутри горизонта учтено 20 шт. Потребность до округления 185 шт., после MOQ и кратности рекомендовано 200 шт. Разовый выброс 160 шт. исключен из регулярного спроса.",
+          "flags": ["outlier_excluded", "stockout_compensated", "rounded_to_pack_multiple"]
+        },
+        {
+          "item_id": "item_sku_2001",
+          "sku": "2001",
+          "supplier_article": "SUP-2001",
+          "item_name": "Кабель силовой 3x2.5",
+          "category": "Кабель",
+          "warehouse": "Алматы",
+          "unit": "м",
+          "supplier_id": "iek",
+          "supplier_name": "IEK",
+          "urgency": "normal",
+          "expected_stockout_date": null,
+          "recommended_quantity": 120,
+          "calculated_quantity": 120,
+          "approved_quantity": null,
+          "manager_adjustment_reason": null,
+          "components": {
+            "horizon_days": 28,
+            "raw_demand_quantity": 600,
+            "excluded_outlier_quantity": 0,
+            "adjusted_regular_demand_quantity": 600,
+            "lost_demand_estimate_quantity": 0,
+            "seasonality_coefficient": 0.9,
+            "trend_multiplier": 1,
+            "growth_override_percent": 0,
+            "forecast_over_horizon": 420,
+            "demand_stddev_over_lead_time": 30,
+            "safety_stock": 50,
+            "available_stock": 350,
+            "available_stock_date": "2026-09-22",
+            "eligible_inbound": [
+              {
+                "quantity": 0,
+                "expected_date": "2026-10-01",
+                "included": true,
+                "reason": "Нет подтвержденного количества к поступлению"
+              }
+            ],
+            "net_need_before_rounding": 120,
+            "moq": 100,
+            "pack_multiple": 10,
+            "rounding_delta": 0
+          },
+          "explanation": "Прогноз на 28 дней: 420 м. Страховой запас: 50 м. Доступный остаток 350 м, подтвержденных поступлений нет. Потребность 120 м уже соответствует MOQ и кратности.",
+          "flags": []
+        }
+      ]
+    }
+  ],
+  "data_quality": [
+    {
+      "code": "REAL_STOCKOUT_INTERVALS_MISSING",
+      "severity": "warning",
+      "message": "В реальных файлах нет подтвержденных интервалов отсутствия товара; stockout проверяется на синтетических сценариях.",
+      "sku": null
+    }
+  ]
+}

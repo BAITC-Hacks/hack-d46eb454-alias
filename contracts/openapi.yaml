@@ -1,0 +1,606 @@
+openapi: 3.1.0
+info:
+  title: HACKALEM AI Replenishment API
+  version: 0.1.0
+  description: >
+    Contract for the hackathon MVP: import local Excel data, calculate supplier
+    replenishment recommendations, let a manager adjust and approve the order,
+    and export the approved draft. All customer identifiers are optional and
+    must be anonymized before ingestion.
+servers:
+  - url: http://localhost:8000
+    description: Local FastAPI server
+tags:
+  - name: import
+  - name: recommendations
+  - name: orders
+paths:
+  /api/health:
+    get:
+      summary: Check server readiness
+      operationId: getHealth
+      responses:
+        "200":
+          description: Server is ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/import/preview:
+    post:
+      tags: [import]
+      summary: Preview local Excel import quality before saving
+      operationId: previewImport
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                warehouse_scope:
+                  type: string
+                  example: "Алматы"
+      responses:
+        "200":
+          description: Parsed file summary and data quality warnings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportPreviewResponse"
+
+  /api/import/commit:
+    post:
+      tags: [import]
+      summary: Save validated local import as a dataset snapshot
+      operationId: commitImport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommitImportRequest"
+      responses:
+        "201":
+          description: Dataset snapshot created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetSnapshot"
+
+  /api/recommendations/calculate:
+    post:
+      tags: [recommendations]
+      summary: Calculate supplier replenishment recommendations
+      operationId: calculateRecommendations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalculateRecommendationsRequest"
+      responses:
+        "200":
+          description: Recommendations grouped by supplier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationRun"
+
+  /api/recommendations/runs/{run_id}:
+    get:
+      tags: [recommendations]
+      summary: Read a previously calculated recommendation run
+      operationId: getRecommendationRun
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Recommendation run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationRun"
+
+  /api/recommendations/runs/{run_id}/items/{item_id}/adjust:
+    patch:
+      tags: [recommendations]
+      summary: Override one recommended quantity with a manager reason
+      operationId: adjustRecommendationItem
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/ItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdjustRecommendationRequest"
+      responses:
+        "200":
+          description: Updated item; run approval is reset when needed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationItem"
+
+  /api/orders/{run_id}/approve:
+    post:
+      tags: [orders]
+      summary: Approve current recommendation run as an order draft
+      operationId: approveOrderDraft
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveOrderRequest"
+      responses:
+        "200":
+          description: Order draft approved by responsible employee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderApproval"
+
+  /api/orders/{run_id}/export:
+    get:
+      tags: [orders]
+      summary: Export grouped order draft as CSV or XLSX
+      operationId: exportOrderDraft
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [csv, xlsx]
+      responses:
+        "200":
+          description: Export file
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+components:
+  parameters:
+    RunId:
+      name: run_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ItemId:
+      name: item_id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        version:
+          type: string
+
+    ImportPreviewResponse:
+      type: object
+      required: [files, row_counts, warnings, unsupported_fields]
+      properties:
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportedFile"
+        row_counts:
+          type: object
+          additionalProperties:
+            type: integer
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataQualityWarning"
+        unsupported_fields:
+          type: array
+          items:
+            type: string
+
+    CommitImportRequest:
+      type: object
+      required: [preview_id]
+      properties:
+        preview_id:
+          type: string
+        label:
+          type: string
+          example: "IEK demo snapshot 2026-09-22"
+
+    DatasetSnapshot:
+      type: object
+      required: [dataset_id, created_at, label]
+      properties:
+        dataset_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        label:
+          type: string
+
+    CalculateRecommendationsRequest:
+      type: object
+      required:
+        - dataset_id
+        - calculation_date
+        - warehouse_scope
+        - review_period_days
+        - default_lead_time_days
+        - service_level_z
+      properties:
+        dataset_id:
+          type: string
+          description: Dataset snapshot id; use "synthetic-fixtures" for test fixtures.
+        calculation_date:
+          type: string
+          format: date
+          example: "2026-09-23"
+        warehouse_scope:
+          type: string
+          example: "Алматы"
+        review_period_days:
+          type: integer
+          minimum: 1
+          example: 7
+        default_lead_time_days:
+          type: integer
+          minimum: 0
+          example: 21
+        service_level_z:
+          type: number
+          example: 1.65
+        growth_override_percent:
+          type: number
+          default: 0
+          description: Manual additional growth percentage; do not double count historical trend.
+        include_unapproved_stockout_estimates:
+          type: boolean
+          default: false
+        category_settings:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategorySetting"
+
+    CategorySetting:
+      type: object
+      required: [category, service_level_z]
+      properties:
+        category:
+          type: string
+        service_level_z:
+          type: number
+        growth_override_percent:
+          type: number
+          default: 0
+
+    RecommendationRun:
+      type: object
+      required:
+        - run_id
+        - dataset_id
+        - calculation_date
+        - algorithm_version
+        - status
+        - parameters
+        - totals
+        - suppliers
+        - data_quality
+      properties:
+        run_id:
+          type: string
+        dataset_id:
+          type: string
+        calculation_date:
+          type: string
+          format: date
+        algorithm_version:
+          type: string
+          example: "replenishment-v0.1"
+        status:
+          type: string
+          enum: [draft, approved, stale_after_edit]
+        parameters:
+          $ref: "#/components/schemas/CalculationParameters"
+        totals:
+          $ref: "#/components/schemas/RunTotals"
+        suppliers:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupplierRecommendationGroup"
+        data_quality:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataQualityWarning"
+
+    CalculationParameters:
+      type: object
+      required:
+        - review_period_days
+        - default_lead_time_days
+        - service_level_z
+        - demand_window_days
+        - trend_method
+        - outlier_method
+        - seasonality_source
+        - safety_stock_method
+      properties:
+        review_period_days:
+          type: integer
+        default_lead_time_days:
+          type: integer
+        service_level_z:
+          type: number
+        demand_window_days:
+          type: integer
+        trend_method:
+          type: string
+          enum: [rolling_window, exponential_smoothing]
+        outlier_method:
+          type: string
+          example: "MAD by operation quantity and customer_id when available"
+        seasonality_source:
+          type: string
+          example: "Сезонность ИЭК.xlsx"
+        safety_stock_method:
+          type: string
+          example: "z * sigma(demand over lead time)"
+
+    RunTotals:
+      type: object
+      required: [item_count, recommended_item_count, total_recommended_quantity]
+      properties:
+        item_count:
+          type: integer
+        recommended_item_count:
+          type: integer
+        total_recommended_quantity:
+          type: number
+
+    SupplierRecommendationGroup:
+      type: object
+      required: [supplier_id, supplier_name, items]
+      properties:
+        supplier_id:
+          type: string
+        supplier_name:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecommendationItem"
+
+    RecommendationItem:
+      type: object
+      required:
+        - item_id
+        - sku
+        - item_name
+        - category
+        - warehouse
+        - unit
+        - supplier_id
+        - supplier_name
+        - urgency
+        - recommended_quantity
+        - calculated_quantity
+        - approved_quantity
+        - components
+        - explanation
+        - flags
+      properties:
+        item_id:
+          type: string
+        sku:
+          type: string
+          description: 1C item code as a string.
+        supplier_article:
+          type: [string, "null"]
+        item_name:
+          type: string
+        category:
+          type: [string, "null"]
+        warehouse:
+          type: string
+        unit:
+          type: string
+        supplier_id:
+          type: string
+        supplier_name:
+          type: string
+        urgency:
+          type: string
+          enum: [critical, high, normal, low]
+        expected_stockout_date:
+          type: [string, "null"]
+          format: date
+        recommended_quantity:
+          type: number
+          description: Final quantity after MOQ and pack multiple.
+        calculated_quantity:
+          type: number
+          description: Quantity before manual override.
+        approved_quantity:
+          type: [number, "null"]
+          description: Manager override; null means no override.
+        manager_adjustment_reason:
+          type: [string, "null"]
+        components:
+          $ref: "#/components/schemas/CalculationComponents"
+        explanation:
+          type: string
+        flags:
+          type: array
+          items:
+            type: string
+
+    CalculationComponents:
+      type: object
+      required:
+        - horizon_days
+        - raw_demand_quantity
+        - excluded_outlier_quantity
+        - adjusted_regular_demand_quantity
+        - lost_demand_estimate_quantity
+        - seasonality_coefficient
+        - trend_multiplier
+        - growth_override_percent
+        - forecast_over_horizon
+        - demand_stddev_over_lead_time
+        - safety_stock
+        - available_stock
+        - available_stock_date
+        - eligible_inbound
+        - net_need_before_rounding
+        - moq
+        - pack_multiple
+        - rounding_delta
+      properties:
+        horizon_days:
+          type: integer
+        raw_demand_quantity:
+          type: number
+        excluded_outlier_quantity:
+          type: number
+        adjusted_regular_demand_quantity:
+          type: number
+        lost_demand_estimate_quantity:
+          type: number
+        seasonality_coefficient:
+          type: number
+        trend_multiplier:
+          type: number
+        growth_override_percent:
+          type: number
+        forecast_over_horizon:
+          type: number
+        demand_stddev_over_lead_time:
+          type: number
+        safety_stock:
+          type: number
+        available_stock:
+          type: [number, "null"]
+        available_stock_date:
+          type: [string, "null"]
+          format: date
+        eligible_inbound:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboundComponent"
+        net_need_before_rounding:
+          type: number
+        moq:
+          type: [number, "null"]
+        pack_multiple:
+          type: [number, "null"]
+        rounding_delta:
+          type: number
+
+    InboundComponent:
+      type: object
+      required: [quantity, expected_date, included, reason]
+      properties:
+        quantity:
+          type: number
+        expected_date:
+          type: string
+          format: date
+        included:
+          type: boolean
+        reason:
+          type: string
+
+    AdjustRecommendationRequest:
+      type: object
+      required: [approved_quantity, reason, changed_by]
+      properties:
+        approved_quantity:
+          type: number
+          minimum: 0
+        reason:
+          type: string
+          minLength: 1
+        changed_by:
+          type: string
+          example: "purchase_manager"
+
+    ApproveOrderRequest:
+      type: object
+      required: [approved_by]
+      properties:
+        approved_by:
+          type: string
+          example: "purchase_manager"
+        comment:
+          type: string
+
+    OrderApproval:
+      type: object
+      required: [run_id, status, approved_by, approved_at]
+      properties:
+        run_id:
+          type: string
+        status:
+          type: string
+          enum: [approved]
+        approved_by:
+          type: string
+        approved_at:
+          type: string
+          format: date-time
+
+    ImportedFile:
+      type: object
+      required: [file_name, sheet_names, detected_type]
+      properties:
+        file_name:
+          type: string
+        sheet_names:
+          type: array
+          items:
+            type: string
+        detected_type:
+          type: string
+          enum: [sales_detail, monthly_sales, monthly_stock, inbound, moq, seasonality, unknown]
+
+    DataQualityWarning:
+      type: object
+      required: [code, severity, message]
+      properties:
+        code:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, error]
+        message:
+          type: string
+        sku:
+          type: [string, "null"]

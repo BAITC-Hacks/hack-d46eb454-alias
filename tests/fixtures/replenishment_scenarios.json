@@ -1,0 +1,202 @@
+{
+  "fixture_version": "0.1.0",
+  "calculation_date": "2026-09-23",
+  "currency": null,
+  "notes": [
+    "All data is synthetic.",
+    "Quantities are in stock units unless unit_conversion is present.",
+    "Expected values are calculated independently from the future implementation."
+  ],
+  "defaults": {
+    "warehouse": "Алматы",
+    "review_period_days": 7,
+    "lead_time_days": 21,
+    "horizon_days": 28,
+    "service_level_z": 1.65,
+    "seasonality_source": "Сезонность ИЭК.xlsx",
+    "trend_method": "rolling_window",
+    "outlier_method": "MAD"
+  },
+  "scenarios": [
+    {
+      "id": "base_all_inputs",
+      "must_have": "1) Base replenishment uses sales, stock, inbound, category and growth forecast.",
+      "sku": "FIX-BASE-001",
+      "supplier_id": "supplier_a",
+      "supplier_name": "Поставщик A",
+      "category": "Высокий риск",
+      "unit": "шт",
+      "inputs": {
+        "forecast_over_horizon": 100,
+        "safety_stock": 20,
+        "available_stock": 30,
+        "eligible_inbound": 40,
+        "growth_override_percent": 0,
+        "moq": null,
+        "pack_multiple": null
+      },
+      "expected": {
+        "net_need_before_rounding": 50,
+        "recommended_quantity": 50,
+        "explanation_contains": ["100", "20", "30", "40", "50"],
+        "sensitivity_checks": [
+          {
+            "change": "eligible_inbound + 10",
+            "expected_recommended_quantity": 40
+          },
+          {
+            "change": "available_stock + 10",
+            "expected_recommended_quantity": 40
+          }
+        ]
+      }
+    },
+    {
+      "id": "seasonality_and_growth",
+      "must_have": "2) Forecast reflects seasonality and sustained growth, not a flat average.",
+      "sku": "FIX-SEASON-002",
+      "supplier_id": "supplier_a",
+      "supplier_name": "Поставщик A",
+      "category": "Сезонный товар",
+      "unit": "шт",
+      "inputs": {
+        "base_daily_demand": 10,
+        "horizon_days": 28,
+        "seasonality_coefficient": 1.5,
+        "trend_multiplier": 1.2,
+        "growth_override_percent": 0,
+        "safety_stock": 0,
+        "available_stock": 200,
+        "eligible_inbound": 0,
+        "moq": null,
+        "pack_multiple": null
+      },
+      "expected": {
+        "forecast_over_horizon": 504,
+        "net_need_before_rounding": 304,
+        "recommended_quantity": 304,
+        "flat_average_forecast_without_seasonality": 280,
+        "flags": ["seasonality_applied", "trend_applied"]
+      }
+    },
+    {
+      "id": "stockout_compensation",
+      "must_have": "3) Confirmed stockout increases estimated demand versus raw observed sales.",
+      "sku": "FIX-STOCKOUT-003",
+      "supplier_id": "supplier_b",
+      "supplier_name": "Поставщик B",
+      "category": "Обычный товар",
+      "unit": "шт",
+      "inputs": {
+        "raw_observed_sales_in_window": 70,
+        "confirmed_stockout_days": 3,
+        "comparable_available_daily_demand": 10,
+        "lost_demand_estimate_quantity": 30,
+        "forecast_over_horizon_without_stockout": 70,
+        "forecast_over_horizon": 100,
+        "safety_stock": 10,
+        "available_stock": 20,
+        "eligible_inbound": 0,
+        "moq": null,
+        "pack_multiple": null
+      },
+      "expected": {
+        "net_need_before_rounding": 90,
+        "recommended_quantity": 90,
+        "increase_vs_raw_sales_calculation": 30,
+        "flags": ["stockout_compensated"]
+      }
+    },
+    {
+      "id": "one_time_large_order_excluded",
+      "must_have": "4) One-off large order is excluded from regular demand.",
+      "sku": "FIX-OUTLIER-004",
+      "supplier_id": "supplier_a",
+      "supplier_name": "Поставщик A",
+      "category": "Обычный товар",
+      "unit": "шт",
+      "inputs": {
+        "regular_operations": [10, 11, 9, 10, 10, 11, 9],
+        "one_time_operation": {
+          "quantity": 160,
+          "customer_id": "anon-big-1"
+        },
+        "expected_regular_forecast_over_horizon": 70,
+        "raw_forecast_if_not_excluded": 230,
+        "safety_stock": 10,
+        "available_stock": 30,
+        "eligible_inbound": 0,
+        "moq": null,
+        "pack_multiple": null
+      },
+      "expected": {
+        "excluded_outlier_quantity": 160,
+        "forecast_over_horizon": 70,
+        "net_need_before_rounding": 50,
+        "recommended_quantity": 50,
+        "max_allowed_forecast_change_vs_without_outlier": 1,
+        "flags": ["outlier_excluded"]
+      }
+    },
+    {
+      "id": "supplier_grouping_explanation_moq",
+      "must_have": "5) Output is grouped by supplier and each item has a numeric explanation.",
+      "sku": "FIX-GROUP-005",
+      "supplier_id": "supplier_b",
+      "supplier_name": "Поставщик B",
+      "category": "Кабель",
+      "unit": "м",
+      "inputs": {
+        "forecast_over_horizon": 180,
+        "safety_stock": 20,
+        "available_stock": 70,
+        "eligible_inbound": 0,
+        "moq": 100,
+        "pack_multiple": 50
+      },
+      "expected": {
+        "net_need_before_rounding": 130,
+        "recommended_quantity": 150,
+        "rounding_delta": 20,
+        "supplier_group_key": "supplier_b",
+        "explanation_contains": ["180", "20", "70", "130", "150"],
+        "flags": ["rounded_to_pack_multiple"]
+      }
+    },
+    {
+      "id": "late_inbound_does_not_hide_shortage",
+      "must_have": "Boundary case: inbound after horizon does not reduce current need.",
+      "sku": "FIX-LATE-006",
+      "supplier_id": "supplier_c",
+      "supplier_name": "Поставщик C",
+      "category": "Критичный товар",
+      "unit": "шт",
+      "inputs": {
+        "forecast_over_horizon": 100,
+        "safety_stock": 20,
+        "available_stock": 30,
+        "inbound": [
+          {
+            "quantity": 40,
+            "expected_date": "2026-10-05",
+            "included": true
+          },
+          {
+            "quantity": 100,
+            "expected_date": "2026-11-15",
+            "included": false
+          }
+        ],
+        "moq": null,
+        "pack_multiple": null
+      },
+      "expected": {
+        "eligible_inbound": 40,
+        "ignored_late_inbound": 100,
+        "net_need_before_rounding": 50,
+        "recommended_quantity": 50,
+        "flags": ["late_inbound_ignored_for_current_horizon"]
+      }
+    }
+  ]
+}
