@@ -850,28 +850,6 @@
   grid-template-columns: 1.3fr 1fr;
   gap: 16px;
 }
-#ekt-atelier .ek-importflow {
-  max-width: 760px;
-}
-#ekt-atelier .ek-import-steps {
-  display: flex;
-  gap: 8px;
-  list-style: none;
-  margin: 0 0 20px;
-  padding: 0;
-  color: var(--ekt-muted);
-  font-size: 11px;
-}
-#ekt-atelier .ek-import-steps li {
-  padding: 5px 8px;
-  background: #f1f4f6;
-  border-radius: 8px;
-}
-#ekt-atelier .ek-import-steps .is-active {
-  background: var(--ekt-tint);
-  color: var(--ekt-blue);
-  font-weight: 600;
-}
 #ekt-atelier .ek-drop {
   border: 1.5px dashed #bcd2dd;
   border-radius: 18px;
@@ -920,25 +898,6 @@
 }
 #ekt-atelier .ek-import-preview {
   display: flex;
-  margin-top: 18px;
-}
-#ekt-atelier .ek-advanced {
-  margin-top: 18px;
-}
-#ekt-atelier .ek-advanced summary {
-  color: var(--ekt-blue);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-}
-#ekt-atelier .ek-advanced .ek-filterrow {
-  margin-top: 14px;
-}
-#ekt-atelier .ek-import-calculate {
-  margin-top: 20px;
-}
-#ekt-atelier .ek-demo-link {
-  display: block;
   margin-top: 18px;
 }
 #ekt-atelier .ek-file {

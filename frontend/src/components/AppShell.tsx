@@ -3,15 +3,24 @@ import {
   Database,
   Files,
   FlaskConical,
+  LayoutDashboard,
   ListFilter,
+  Package,
+  Palette,
+  Search,
+  Settings2,
+  Truck,
 } from "lucide-react";
 import type { Design, Page } from "../types";
 
 export const navigation = [
-  { id: "data", label: "Данные", icon: Database },
-  { id: "recommendations", label: "Рекомендации", icon: ListFilter },
+  { id: "overview", label: "Обзор", icon: LayoutDashboard },
+  { id: "recommendations", label: "Закупки", icon: ListFilter },
   { id: "orders", label: "Заказы", icon: Files },
-] satisfies { id: Page; label: string; icon: typeof Database }[];
+  { id: "data", label: "Данные", icon: Database },
+  { id: "catalog", label: "Товары", icon: Package },
+  { id: "suppliers", label: "Поставщики", icon: Truck },
+] satisfies { id: Page; label: string; icon: typeof LayoutDashboard }[];
 const titles: Record<Page, [string, string, string]> = {
   overview: [
     "Рабочее пространство",
@@ -62,6 +71,7 @@ interface Props {
   design: Design;
   dense: boolean;
   onNavigate: (page: Page) => void;
+  onAppearance: () => void;
   action: ReactNode;
   health: { status: "ok"; version: string } | null;
   dataOrigin: "synthetic" | "partner" | null;
@@ -72,6 +82,7 @@ export function AppShell({
   design,
   dense,
   onNavigate,
+  onAppearance,
   action,
   health,
   dataOrigin,
@@ -118,8 +129,57 @@ export function AppShell({
               </a>
             ))}
           </nav>
+          <div className="ek-headtools">
+            <button
+              className="ek-circle"
+              type="button"
+              aria-label="Поиск товара"
+              onClick={() => onNavigate("catalog")}
+            >
+              <Search size={18} />
+            </button>
+            <button
+              className="ek-circle"
+              type="button"
+              aria-label="Настройки оформления"
+              onClick={onAppearance}
+            >
+              <Palette size={18} />
+            </button>
+          </div>
         </header>
         <div className="ek-body">
+          <aside className="ek-rail" aria-label="Быстрые действия">
+            <div className="ek-rail-group">
+              {navigation.slice(0, 4).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-label={item.label}
+                  className={page === item.id ? "is-active" : ""}
+                  onClick={() => onNavigate(item.id)}
+                >
+                  <item.icon size={18} />
+                </button>
+              ))}
+            </div>
+            <div className="ek-rail-group ek-rail-footer">
+              <button
+                type="button"
+                aria-label="Параметры поставщиков"
+                onClick={() => onNavigate("suppliers")}
+              >
+                <Settings2 size={18} />
+              </button>
+              <button
+                type="button"
+                aria-label="Выбрать оформление"
+                onClick={onAppearance}
+              >
+                <Palette size={18} />
+              </button>
+            </div>
+          </aside>
           <main id="main-content" className="ek-main">
             <div className="ek-titlebar">
               <div>
