@@ -13,3 +13,13 @@ Hackathon team repository for Alias
 - [MCP: назначение и подключение](docs/MCP.md)
 
 Проектные навыки: `hackalem-import`, `hackalem-replenishment`, `hackalem-ui`, `hackalem-verify` в `.agents/skills/`.
+
+## Локальный запуск в Docker
+
+После запуска Docker Desktop выполните из корня репозитория:
+
+```bash
+docker compose up --build
+```
+
+Интерфейс: `http://127.0.0.1:8080/#/data`. Документация API: `http://127.0.0.1:8000/docs`.

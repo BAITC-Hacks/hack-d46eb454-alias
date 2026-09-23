@@ -1,6 +1,4 @@
-services:
-  frontend:
-    build: .
-    ports:
-      - "127.0.0.1:8080:80"
-    restart: unless-stopped
+# Используйте ../compose.yaml: он запускает frontend вместе с FastAPI backend.
+# Этот файл сохранён только как указатель для прежней команды из frontend/.
+include:
+  - path: ../compose.yaml
